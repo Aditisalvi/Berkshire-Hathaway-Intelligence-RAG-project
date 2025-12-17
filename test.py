@@ -9,11 +9,11 @@ response = requests.post(
         "Content-Type":"application/json"
     },
     json={
-        "model":"text-embedding-3-small",
+        "model":"gpt-4o",
         "messages":[
             {
                 "role":"user",
-                "content":"Turn this into an embedding - Princess Kaguya"  # insert your prompt here, instead of Hello
+                "content":"What is your model name"  # insert your prompt here, instead of Hello
             }
         ]
     }

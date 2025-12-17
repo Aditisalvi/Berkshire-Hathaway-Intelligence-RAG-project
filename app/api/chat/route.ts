@@ -48,14 +48,12 @@ export async function POST(req: NextRequest) {
     const agent = mastra.getAgent('berkshire-agent');
     
     if (!agent) {
-      console.error('Agent not found. Available agents:', Object.keys(mastra.agents || {}));
+      console.error('Agent not found');
       return NextResponse.json(
         { error: 'Agent not found' },
         { status: 500 }
       );
     }
-
-    console.log('Agent found:', agent.name);
 
     const lastMessage = messages[messages.length - 1];
     
@@ -66,20 +64,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log('Calling agent with message:', lastMessage.content);
+    console.log('Setting up streaming with RAG...');
     
     try {
-      // Bypass Mastra's streamLegacy - use AI SDK directly
+      // Import necessary modules
       const { google } = await import('@ai-sdk/google');
       const { streamText } = await import('ai');
-      
-      console.log('Using AI SDK directly with Gemini...');
-      
-      // Step 1: Search the vector database for relevant context
-      console.log('Searching vector database...');
       const { PgVector } = await import('@mastra/pg');
       const { embed } = await import('ai');
       
+      // Step 1: Search the vector database for relevant context
       const pgVector = new PgVector({
         connectionString: process.env.POSTGRES_CONNECTION_STRING!,
       });
@@ -97,7 +91,7 @@ export async function POST(req: NextRequest) {
         topK: 5,
       });
       
-      console.log(`Found ${searchResults.length} relevant chunks from database`);
+      console.log(`Found ${searchResults.length} relevant chunks`);
       
       // Extract context from search results
       const context = searchResults
@@ -107,12 +101,8 @@ export async function POST(req: NextRequest) {
         })
         .join('\n\n---\n\n');
       
-      console.log('Context length:', context.length, 'characters');
-      
-      // Step 2: Generate response using the context
-      const userPrompt = `You are a financial analyst specializing in Warren Buffett's investment philosophy.
-
-IMPORTANT: Base your answer ONLY on the following excerpts from Berkshire Hathaway shareholder letters. Quote directly from these sources and cite the year.
+      // Step 2: Create the prompt with context
+      const userPrompt = `${agentInstructions}
 
 Context from shareholder letters:
 ${context}
@@ -121,40 +111,52 @@ User Question: ${lastMessage.content}
 
 Instructions:
 - Answer based ONLY on the provided context
-- Quote specific passages and cite the year
-- If the context doesn't contain relevant information, say so
-- Be specific about which years you're referencing`;
+- Quote specific passages and cite the year inline (e.g., "as stated in the 2024 letter")
+- Be comprehensive and detailed
+- Do NOT add a sources list at the end - it will be added automatically`;
+
+      console.log('Starting stream...');
       
-      console.log('Generating response with context...');
-      
-      const { generateText } = await import('ai');
-      
-      const { text } = await generateText({
+      // Step 3: Stream the response
+      const result = await streamText({
         model: google('gemini-2.5-flash'),
         prompt: userPrompt,
       });
       
-      console.log('\n=== GEMINI RESPONSE (WITH RAG) ===');
-      console.log(text);
-      console.log('=== END ===\n');
-      
-      // Return as plain text
-      return new NextResponse(text, {
+      // Create streaming response
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        async start(controller) {
+          try {
+            // Stream the AI response
+            for await (const chunk of result.textStream) {
+              // Properly escape the text for JSON
+              const escapedText = JSON.stringify(chunk);
+              controller.enqueue(encoder.encode(`0:${escapedText}\n`));
+            }
+            
+            controller.close();
+          } catch (error) {
+            console.error('Stream error:', error);
+            controller.error(error);
+          }
+        },
+      });
+
+      return new NextResponse(stream, {
         headers: {
-          'Content-Type': 'text/plain',
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
         },
       });
       
     } catch (streamError) {
       console.error('Streaming error:', streamError);
-      console.error('Error details:', streamError instanceof Error ? streamError.message : String(streamError));
-      console.error('Error stack:', streamError instanceof Error ? streamError.stack : 'No stack');
-      
       return NextResponse.json(
         { 
           error: 'Streaming failed',
           message: streamError instanceof Error ? streamError.message : String(streamError),
-          stack: streamError instanceof Error ? streamError.stack : undefined
         },
         { status: 500 }
       );
@@ -162,7 +164,6 @@ Instructions:
 
   } catch (error) {
     console.error('Chat API error:', error);
-    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     return NextResponse.json(
       { 
         error: 'An error occurred processing your request',
