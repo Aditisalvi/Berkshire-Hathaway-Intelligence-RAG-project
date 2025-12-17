@@ -36,6 +36,13 @@ export default function ChatInterface() {
     inputRef.current?.focus();
   };
 
+  const handleNewConversation = () => {
+    if (confirm('Start a new conversation? Current chat history will be cleared.')) {
+      setMessages([]);
+      setInput('');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -163,8 +170,26 @@ export default function ChatInterface() {
   return (
     <div className="chat-container">
       <div className="chat-header">
-        <h1>Berkshire Hathaway Intelligence</h1>
-        <p>Explore Warren Buffett's investment philosophy through decades of shareholder letters</p>
+        <div className="header-content">
+          <div className="header-title">
+            <h1>Berkshire Hathaway Intelligence</h1>
+            <p>Explore Warren Buffett's investment philosophy through decades of shareholder letters</p>
+          </div>
+          {messages.length > 0 && (
+            <button 
+              onClick={handleNewConversation}
+              className="new-chat-button"
+              title="Start a new conversation"
+            >
+              ➕ New Chat
+            </button>
+          )}
+        </div>
+        {messages.length > 0 && (
+          <div className="conversation-info">
+            💬 Conversation active • Context maintained across {Math.floor(messages.length / 2)} turns
+          </div>
+        )}
       </div>
 
       <div className="messages-container">

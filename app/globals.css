@@ -44,7 +44,17 @@ code {
   background-color: #1a73e8;
   color: white;
   padding: 1.5rem;
-  text-align: center;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.header-title {
+  flex: 1;
 }
 
 .chat-header h1 {
@@ -56,6 +66,34 @@ code {
 .chat-header p {
   font-size: 0.9rem;
   opacity: 0.9;
+}
+
+.new-chat-button {
+  padding: 0.5rem 1rem;
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.new-chat-button:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.conversation-info {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background-color: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  text-align: center;
+  opacity: 0.95;
 }
 
 .messages-container {
@@ -126,6 +164,17 @@ code {
   gap: 0.5rem;
 }
 
+.sources-note {
+  margin-top: 0.75rem;
+  padding: 0.5rem;
+  background-color: rgba(255, 193, 7, 0.1);
+  border-left: 3px solid #ffc107;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: #666;
+  font-style: italic;
+}
+
 .source-link {
   display: inline-flex;
   align-items: center;
@@ -148,6 +197,19 @@ code {
 
 .source-link:active {
   transform: translateX(2px);
+}
+
+/* Special styling for the "All Letters" folder link */
+.source-link:last-child {
+  margin-top: 0.5rem;
+  background-color: rgba(76, 175, 80, 0.08);
+  border-left-color: #4caf50;
+  color: #2e7d32;
+  font-size: 0.9em;
+}
+
+.source-link:last-child:hover {
+  background-color: rgba(76, 175, 80, 0.15);
 }
 
 .source-item {

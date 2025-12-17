@@ -64,7 +64,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log('Setting up streaming with RAG...');
+    console.log('Setting up streaming with RAG and conversation memory...');
+    console.log(`Thread ID: ${threadId}`);
+    console.log(`Message history length: ${messages.length}`);
     
     try {
       // Import necessary modules
@@ -101,26 +103,39 @@ export async function POST(req: NextRequest) {
         })
         .join('\n\n---\n\n');
       
-      // Step 2: Create the prompt with context
-      const userPrompt = `${agentInstructions}
+      // Step 2: Build conversation history for context
+      // Include previous messages (up to last 10 to avoid token limit)
+      const recentMessages = messages.slice(-10);
+      const conversationHistory = recentMessages
+        .slice(0, -1) // Exclude the last message (current question)
+        .map(msg => `${msg.role.toUpperCase()}: ${msg.content}`)
+        .join('\n\n');
+      
+      // Step 3: Create the prompt with context AND conversation history
+      const systemPrompt = `${agentInstructions}
 
 Context from shareholder letters:
 ${context}
 
-User Question: ${lastMessage.content}
+${conversationHistory ? `Previous conversation:
+${conversationHistory}
+
+` : ''}Current User Question: ${lastMessage.content}
 
 Instructions:
-- Answer based ONLY on the provided context
+- Answer based on the provided context from shareholder letters
+- Use the conversation history to understand follow-up questions and maintain context
+- If this is a follow-up question (e.g., "Can you elaborate?", "What else?"), refer back to the previous discussion
 - Quote specific passages and cite the year inline (e.g., "as stated in the 2024 letter")
 - Be comprehensive and detailed
-- Do NOT add a sources list at the end - it will be added automatically`;
+- Maintain continuity with previous answers in this conversation`;
 
-      console.log('Starting stream...');
+      console.log('Starting stream with conversation history...');
       
-      // Step 3: Stream the response
+      // Step 4: Stream the response
       const result = await streamText({
         model: google('gemini-2.5-flash'),
-        prompt: userPrompt,
+        prompt: systemPrompt,
       });
       
       // Create streaming response
