@@ -1,5 +1,7 @@
 import { mastra } from '@/mastra';
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyToken } from '@/lib/auth';
+import { addMessage } from '@/lib/db';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -35,7 +37,18 @@ Remember: Your authority comes from the shareholder letters. Stay grounded in th
 
 export async function POST(req: NextRequest) {
   try {
-    const { messages, threadId } = await req.json();
+    // Verify authentication
+    const token = req.headers.get('authorization')?.replace('Bearer ', '');
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const payload = verifyToken(token);
+    if (!payload) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
+    const { messages, conversationId } = await req.json();
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json(
@@ -65,7 +78,7 @@ export async function POST(req: NextRequest) {
     }
 
     console.log('Setting up streaming with RAG and conversation memory...');
-    console.log(`Thread ID: ${threadId}`);
+    console.log(`Conversation ID: ${conversationId}`);
     console.log(`Message history length: ${messages.length}`);
     
     try {
