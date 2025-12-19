@@ -1,545 +1,246 @@
-# Berkshire Hathaway Intelligence - RAG Application
+# Berkshire Hathaway Intelligence
 
-A production-ready Retrieval-Augmented Generation (RAG) application built with the Mastra framework for intelligently answering questions about Warren Buffett's investment philosophy using Berkshire Hathaway shareholder letters.
+A RAG (Retrieval-Augmented Generation) chatbot that answers questions about Warren Buffett's investment philosophy using Berkshire Hathaway's annual shareholder letters.
 
 ## Overview
 
-This application demonstrates a complete RAG implementation featuring:
+This application uses AI to help you explore decades of investment wisdom from Warren Buffett. It reads through all of Berkshire Hathaway's shareholder letters, understands your questions, finds relevant information, and provides detailed answers with proper citations.
 
-- **Multi-Model Support**: Choose between OpenAI (GPT-4o) or Google Gemini (2.0 Flash) for LLM and embeddings
-- **Document Processing**: PDF parsing and intelligent chunking using Mastra's MDocument class
-- **Vector Storage**: PostgreSQL with pgvector for efficient similarity search
-- **Intelligent Agents**: AI agents with configurable LLM integration and persistent memory
-- **Streaming Responses**: Real-time response streaming using Mastra's capabilities
-- **Web Interface**: Modern Next.js chat interface with React
-- **Source Attribution**: Transparent citations using document metadata
+Built with the Mastra framework, it combines vector search with GPT-4o to deliver accurate, context-aware responses while maintaining conversation history.
 
-## Architecture
+## Pre-requisites
 
-```
-Frontend (Next.js/React) ←→ Mastra Agents ←→ RAG System ←→ Vector Storage
-        ↓                        ↓                 ↓              ↓
-    Chat UI             Memory & Tools      MDocument         PostgreSQL
-   Streaming            Workflows          Processing         (pgvector)
-```
+Before you start, make sure you have these installed:
 
-## Prerequisites
+- **Node.js** (v18 or higher)
+- **PostgreSQL** (v14 or higher)
+- **npm**
+- **Git**
 
-- Node.js 18+ 
-- PostgreSQL 14+ with pgvector extension
-- OpenAI API key (for GPT-4o and embeddings) OR Google AI API key (for Gemini)
-- npm or yarn
+You'll also need:
+- OpenAI API key (for GPT-4o and embeddings)
+- PostgreSQL running locally or a connection string
 
-**Note**: You can use either OpenAI, Gemini, or both. See [MODEL_CONFIG.md](MODEL_CONFIG.md) for details.
+## Setup
 
-## Installation
-
-### 1. Clone and Install Dependencies
+### 1. Clone the Repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/Aditisalvi/Berkshire-Hathaway-Intelligence-RAG-project.git
 cd berkshire-rag
+```
+
+### 2. Install Dependencies
+
+```bash
 npm install
-```
-
-### 2. Set Up PostgreSQL with pgvector
-
-Install PostgreSQL and the pgvector extension:
-
-```bash
-# On Ubuntu/Debian
-sudo apt-get install postgresql postgresql-contrib
-sudo apt-get install postgresql-14-pgvector
-
-# On macOS
-brew install postgresql@14
-brew install pgvector
-
-# Start PostgreSQL
-sudo service postgresql start  # Linux
-brew services start postgresql@14  # macOS
-```
-
-Create the database:
-
-```bash
-psql postgres
-CREATE DATABASE berkshire_rag;
-\c berkshire_rag
-CREATE EXTENSION vector;
-\q
 ```
 
 ### 3. Configure Environment Variables
 
-Create a `.env` file:
+Create a `.env` file in the root directory:
 
 ```bash
-cp .env.example .env
-```
-
-Edit `.env` and add your credentials:
-
-```env
-# Choose your AI provider (you can use openai, gemini, or both)
+# OpenAI Configuration
 OPENAI_API_KEY=your_openai_api_key_here
-GOOGLE_GENERATIVE_AI_API_KEY=your_google_api_key_here
 
-# Model Selection (optional, defaults to openai)
-LLM_PROVIDER=openai          # or 'gemini'
-EMBEDDING_PROVIDER=openai    # or 'gemini'
+# Model Selection
+LLM_PROVIDER=openai
+EMBEDDING_PROVIDER=openai
 
-# Database
-POSTGRES_CONNECTION_STRING=postgresql://user:password@localhost:5432/berkshire_rag
+# Database Connection
+POSTGRES_CONNECTION_STRING=postgresql://username:password@localhost:5432/berkshire_rag
+
+# Server Configuration
 MASTRA_PORT=4111
 MASTRA_HOST=localhost
+
+# Authentication
+JWT_SECRET=your_secure_secret_key_here
 ```
 
-**Model Configuration**:
-- `LLM_PROVIDER`: Choose `openai` (GPT-4o) or `gemini` (Gemini 2.0 Flash)
-- `EMBEDDING_PROVIDER`: Choose `openai` (text-embedding-3-small) or `gemini` (text-embedding-004)
-- You can mix providers: e.g., OpenAI LLM with Gemini embeddings for cost optimization
+### 4. Set Up the Database
 
-**Important**: If you switch embedding providers, you must re-ingest documents. See [MODEL_CONFIG.md](MODEL_CONFIG.md) for details.
-
-### 4. Download Berkshire Hathaway Letters
-
-Create a `documents` directory and download the PDF letters:
+First, create the database and run the schema:
 
 ```bash
-mkdir documents
+# Drop old database if exists and create fresh schema
+psql postgres -c "DROP DATABASE IF EXISTS berkshire_rag;"
+psql postgres -f schema.sql
 ```
 
-Download the shareholder letters (2019-2024) from the Google Drive link provided in the assignment and place them in the `documents/` directory.
-
-The files should be named in a format that includes the year, e.g.:
-- `berkshire-2019.pdf`
-- `berkshire-2020.pdf`
-- `berkshire-2021.pdf`
-- `berkshire-2022.pdf`
-- `berkshire-2023.pdf`
-- `berkshire-2024.pdf`
+This will create all necessary tables (users, conversations, messages) and enable the pgvector extension.
 
 ### 5. Ingest Documents
 
-Process and index the PDF documents:
+Process and store the documents in the vector database:
 
 ```bash
 npm run ingest
 ```
 
-This will:
-- Parse all PDF files in the `documents/` directory
-- Split documents into chunks with optimal size and overlap
-- Generate embeddings using OpenAI's text-embedding-3-small
-- Store vectors in PostgreSQL with metadata
+This will take a few minutes. You'll see progress updates as each letter is processed.
 
-Expected output:
-```
-Starting document ingestion process...
-Found 6 PDF files to process
-Created or verified index: berkshire_letters
-
-Processing: berkshire-2019.pdf
-  Chunking document...
-  Created 145 chunks
-  Generating embeddings...
-  Storing vectors in database...
-  Successfully processed berkshire-2019.pdf
-
-...
-
-=== Ingestion Complete ===
-Total documents processed: 6
-Total chunks created: 847
-Vector index: berkshire_letters
-```
-
-## Running the Application
-
-### Development Mode
-
-Start the development server:
+### 6. Run the Application
 
 ```bash
 npm run dev
 ```
 
-The application will be available at:
-- Frontend: http://localhost:3000
-- Mastra Studio: http://localhost:4111
-- Swagger UI: http://localhost:4111/swagger-ui
-
-### Testing with Mastra Studio
-
-1. Navigate to http://localhost:4111
-2. Select the `berkshireAgent` from the agents list
-3. Test queries in the playground
-4. View traces and tool calls in the observability tab
-
-### Sample Test Queries
-
-Try these queries to test the RAG system:
-
-1. **Investment Philosophy**
-   - "What does Warren Buffett think about cryptocurrency?"
-   - "What are the key principles of Buffett's investment approach?"
-
-2. **Business Strategy**
-   - "How has Berkshire's investment strategy evolved over the past 5 years?"
-   - "What companies did Berkshire acquire in 2023?"
-
-3. **Market Views**
-   - "What is Buffett's view on market volatility and timing?"
-   - "How does Buffett think about diversification?"
-
-4. **Management Quality**
-   - "How does Buffett evaluate management quality in potential investments?"
-   - "What characteristics does Buffett look for in business leaders?"
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Project Structure
 
 ```
 berkshire-rag/
+│
+├── app/                          # Next.js app directory (frontend + API routes)
+│   ├── api/                      # Backend API endpoints
+│   │   ├── auth/                 # Authentication routes (login, signup)
+│   │   ├── chat/                 # Main chat endpoint (handles AI conversations)
+│   │   ├── conversations/        # CRUD operations for conversations
+│   │   └── messages/             # Message storage and retrieval
+│   │
+│   ├── auth/                     # Login/signup page
+│   ├── chat/                     # Main chat interface
+│   ├── components/               # React components
+│   │   ├── CitationParser.tsx   # Parses and links year citations to source letters
+│   │   └── ConversationSidebar.tsx  # Left sidebar showing chat history
+│   │
+│   ├── globals.css               # Global styles
+│   ├── layout.tsx                # Root layout component
+│   └── page.tsx                  # Home page (redirects to auth or chat)
+│
 ├── src/
-│   ├── lib/
-│   │   └── model-config.ts          # Multi-model configuration
-│   ├── mastra/
-│   │   ├── index.ts                 # Main Mastra instance
+│   ├── lib/                      # Core utilities
+│   │   ├── auth.ts               # JWT authentication logic
+│   │   ├── db.ts                 # Database operations (users, conversations, messages)
+│   │   └── model-config.ts       # AI model configuration (GPT-4o, embeddings)
+│   │
+│   ├── mastra/                   # Mastra framework setup
+│   │   ├── index.ts              # Main Mastra instance with agent and vector store
 │   │   ├── agents/
-│   │   │   └── berkshire-agent.ts   # RAG agent configuration
+│   │   │   └── berkshire-agent.ts    # AI agent with financial expertise
 │   │   └── tools/
-│   │       └── berkshire-query-tool.ts  # Vector query tool
+│   │       └── berkshire-query-tool.ts   # Vector search tool for RAG
+│   │
 │   └── scripts/
-│       └── ingest-documents.ts      # Document processing script
-├── app/
-│   ├── layout.tsx                   # Next.js layout
-│   ├── page.tsx                     # Main page
-│   ├── globals.css                  # Global styles
-│   ├── api/
-│   │   └── chat/
-│   │       └── route.ts             # Chat API endpoint
-│   └── components/
-│       └── ChatInterface.tsx        # Chat UI component
-├── documents/                       # PDF shareholder letters (gitignored)
-├── MODEL_CONFIG.md                  # Multi-model configuration guide
-├── package.json
-├── tsconfig.json
-├── next.config.js
-└── README.md
+│       └── ingest-documents.ts   # Document processing and vector storage script
+│
+├── documents/                    # Shareholder letters (PDFs) - not in git
+├── public/
+│   └── letters.json              # Metadata for all letters (years, URLs)
+│
+├── .env                          # Environment variables (API keys, database config)
+├── .gitignore                    # Git ignore rules
+├── next.config.js                # Next.js configuration
+├── next-env.d.ts                 # TypeScript declarations for Next.js
+├── tsconfig.json                 # TypeScript compiler configuration
+├── package.json                  # Project dependencies and scripts
+├── package-lock.json             # Locked versions of dependencies
+├── schema.sql                    # Database schema creation script
+└── README.md                     # Project documentation
 ```
 
-## Multi-Model Support
+## How It Works
 
-This application supports both OpenAI and Google Gemini models:
+### Document Ingestion Flow
 
-| Provider | LLM Model | Embedding Model | Dimensions | Cost | Speed |
-|----------|-----------|-----------------|------------|------|-------|
-| **OpenAI** | GPT-4o | text-embedding-3-small | 1536 | Higher | Fast |
-| **Gemini** | Gemini 2.0 Flash | text-embedding-004 | 768 | Lower | Faster |
+When you run `npm run ingest`, here's what happens:
 
-**Key Benefits**:
-- **Flexibility**: Switch models without code changes
-- **Cost Optimization**: Use Gemini embeddings to reduce costs
-- **Testing**: Compare model performance easily
-- **Redundancy**: Fallback options if one provider has issues
+1. **PDF Parsing**: The script reads all PDF files from the `documents/` folder and extracts text using `pdf-parse`.
 
-See [MODEL_CONFIG.md](MODEL_CONFIG.md) for detailed configuration guide.
+2. **Chunking**: Each letter is broken down into smaller chunks (1000 characters with 200-character overlap) to fit within the AI's context window.
 
-## Key Features Implemented
+3. **Embedding Generation**: Each chunk is converted into a vector embedding using OpenAI's `text-embedding-3-small` model. These embeddings capture the semantic meaning of the text.
 
-### 1. Document Processing with MDocument
+4. **Vector Storage**: All embeddings are stored in PostgreSQL with the pgvector extension, along with metadata (year, title, source).
 
-```typescript
-const doc = MDocument.fromText(text, metadata);
-const chunks = await doc.chunk({
-  strategy: 'recursive',
-  size: 1000,
-  overlap: 200,
-  separator: '\n\n',
-});
-```
+5. **Indexing**: An HNSW index is created for fast similarity searches.
 
-### 2. Vector Storage with PostgreSQL
+The result is a searchable knowledge base of all shareholder letters.
 
-```typescript
-const pgVector = new PgVector({
-  connectionString: process.env.POSTGRES_CONNECTION_STRING,
-});
+### Chat Flow
 
-await pgVector.upsert({
-  indexName: 'berkshire_letters',
-  vectors: embeddings,
-  metadata: chunks.map(chunk => ({ ...metadata, text: chunk.text })),
-});
-```
+When you ask a question, here's the journey your query takes:
 
-### 3. RAG Agent with Tools
+1. **Authentication**: Your JWT token is verified to ensure you're logged in.
 
-```typescript
-export const berkshireAgent = new Agent({
-  name: 'berkshire-agent',
-  instructions: agentInstructions,
-  model: openai('gpt-4o'),
-  tools: { berkshireQueryTool },
-  memory: new Memory({
-    options: {
-      lastMessages: 10,
-      semanticRecall: { topK: 3, messageRange: 2 },
-    },
-  }),
-});
-```
+2. **Message Storage**: Your question is saved to the database under the current conversation.
 
-### 4. Streaming Responses
+3. **Agent Processing**: The Mastra agent receives your question along with conversation history for context.
 
-```typescript
-const result = await agent.stream(message, {
-  memory: { resource: resourceId, thread: threadId },
-});
+4. **Tool Usage**: The agent automatically decides to use the `berkshireQueryTool` to search for relevant information.
 
-return result.toDataStreamResponse();
-```
+5. **Vector Search**: 
+   - Your question is converted to a vector embedding
+   - PostgreSQL finds the 5 most similar chunks from the letters
+   - These chunks are returned with their metadata (year, source)
 
-## Deployment
+6. **Response Generation**: 
+   - GPT-4o receives your question plus the relevant context from the letters
+   - It generates a comprehensive answer grounded in the source material
+   - The response includes proper citations with years
 
-### Vercel Deployment
+7. **Streaming**: The answer is streamed back to you in real-time, so you see it being written word by word.
 
-1. Install Vercel CLI:
-```bash
-npm install -g vercel
-```
+8. **Storage**: Once complete, the assistant's response is saved to the database.
 
-2. Ensure `next.config.js` has the correct configuration:
-```javascript
-const nextConfig = {
-  serverExternalPackages: ['@mastra/*'],
-};
-```
+The conversation history is maintained throughout, so follow-up questions work naturally ("Can you elaborate on that?" or "What about diversification?").
 
-3. Set up environment variables in Vercel dashboard:
-- `OPENAI_API_KEY`
-- `POSTGRES_CONNECTION_STRING`
+### Why RAG (Retrieval-Augmented Generation)?
 
-4. Deploy:
-```bash
-vercel
-```
+Without RAG, GPT-4o would only use its training data, which has a cutoff date and might contain outdated or incorrect information about Berkshire. With RAG, we:
 
-### PostgreSQL for Production
+- Ground responses in actual shareholder letters (primary sources)
+- Provide specific citations with years
+- Handle questions about recent letters (2023, 2024)
+- Ensure factual accuracy
 
-For production, use a managed PostgreSQL service:
+The agent acts like a research assistant who has read all the letters and can quickly find and cite the relevant passages.
 
-**Neon (Recommended)**
-```bash
-# Sign up at neon.tech
-# Create a new project with pgvector enabled
-# Use the connection string in your .env
-```
+## Features
 
-**Supabase**
-```bash
-# Sign up at supabase.com
-# Create a new project
-# Enable pgvector extension in SQL editor:
-CREATE EXTENSION vector;
-```
+- **Intelligent Q&A**: Ask anything about Buffett's investment philosophy, Berkshire's strategy, or company performance
+- **Source Citations**: Every answer includes references to specific years and letters
+- **Conversation Memory**: Follow-up questions understand previous context
+- **Streaming Responses**: See answers being generated in real-time
+- **Conversation Management**: Save and revisit past conversations
+- **User Authentication**: Secure login system with JWT tokens
 
-**AWS RDS**
-```bash
-# Create PostgreSQL 14+ instance
-# Install pgvector extension
-# Configure security groups for access
-```
+## Technology Stack
 
-## Configuration
-
-### Chunking Strategy
-
-Adjust chunk parameters in `src/scripts/ingest-documents.ts`:
-
-```typescript
-const chunks = await doc.chunk({
-  strategy: 'recursive',     // or 'sliding', 'semantic'
-  size: 1000,                // chunk size in characters
-  overlap: 200,              // overlap between chunks
-  separator: '\n\n',         // split on paragraphs
-});
-```
-
-### Agent Instructions
-
-Customize agent behavior in `src/mastra/agents/berkshire-agent.ts`:
-
-```typescript
-const agentInstructions = `
-  Your custom instructions here...
-`;
-```
-
-### Memory Configuration
-
-Adjust memory settings for conversation context:
-
-```typescript
-memory: new Memory({
-  options: {
-    lastMessages: 10,          // Number of recent messages
-    semanticRecall: {
-      topK: 3,                 // Number of similar messages
-      messageRange: 2,         // Context around each match
-    },
-  },
-});
-```
-
-## Performance Optimization
-
-### 1. Vector Search
-
-Optimize retrieval in `berkshire-query-tool.ts`:
-
-```typescript
-export const berkshireQueryTool = createVectorQueryTool({
-  vectorStoreName: 'pgVector',
-  indexName: 'berkshire_letters',
-  model: openai.embedding('text-embedding-3-small'),
-  topK: 5,  // Adjust based on quality/latency tradeoff
-});
-```
-
-### 2. Database Indexes
-
-Create indexes for better performance:
-
-```sql
-CREATE INDEX idx_year ON documents(year);
-CREATE INDEX idx_metadata ON documents USING gin(metadata);
-```
-
-### 3. Caching
-
-Add response caching for common queries in production.
+- **Frontend**: Next.js 15, React 19, TypeScript
+- **Backend**: Next.js API Routes (Node.js)
+- **AI Framework**: Mastra
+- **LLM**: OpenAI GPT-4o (gpt-4o-2024-08-06)
+- **Embeddings**: OpenAI text-embedding-3-small (1536 dimensions)
+- **Database**: PostgreSQL 14+ with pgvector extension
+- **Authentication**: JWT with bcrypt
+- **PDF Processing**: pdf-parse
+- **Streaming**: Vercel AI SDK
 
 ## Troubleshooting
 
-### PostgreSQL Connection Issues
+**Issue: "Agent not found" error**
+- Make sure you've run `npm install` to install all dependencies
+- Check that the Mastra instance is properly initialized in `src/mastra/index.ts`
 
-```bash
-# Check PostgreSQL is running
-sudo service postgresql status
+**Issue: "No results from vector search"**
+- Run `npm run ingest` to populate the vector database
+- Verify documents are in the `documents/` folder
+- Check PostgreSQL connection string in `.env`
 
-# Check connection
-psql "postgresql://user:password@localhost:5432/berkshire_rag"
+**Issue: "OpenAI API error"**
+- Verify your API key in `.env`
+- Check you have sufficient API credits
+- Ensure you're using the correct model names
 
-# Verify pgvector extension
-\dx
-```
-
-### Document Ingestion Fails
-
-```bash
-# Ensure documents directory exists
-ls documents/
-
-# Check PDF files are readable
-file documents/*.pdf
-
-# Run with detailed logging
-npm run ingest 2>&1 | tee ingestion.log
-```
-
-### API Errors
-
-```bash
-# Check environment variables
-cat .env
-
-# Verify OpenAI API key
-curl https://api.openai.com/v1/models \
-  -H "Authorization: Bearer $OPENAI_API_KEY"
-
-# Check Mastra server logs
-npm run dev
-```
-
-## Testing
-
-### Manual Testing
-
-1. Open http://localhost:3000
-2. Ask a question about Warren Buffett
-3. Verify response includes citations
-4. Test follow-up questions for memory retention
-
-### API Testing
-
-```bash
-curl -X POST http://localhost:3000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{
-    "messages": [
-      {
-        "role": "user",
-        "content": "What does Warren Buffett think about cryptocurrency?"
-      }
-    ],
-    "threadId": "test-thread-123"
-  }'
-```
-
-## Evaluation Metrics
-
-The application meets the following evaluation criteria:
-
-1. **Mastra Implementation (50%)**
-   - Proper use of Mastra framework
-   - Follows documentation patterns
-   - Correct agent and tool configuration
-
-2. **RAG Functionality (25%)**
-   - Vector search working correctly
-   - Context retrieval accurate
-   - Source attribution present
-
-3. **User Experience (15%)**
-   - Intuitive interface
-   - Streaming responses
-   - Error handling
-
-4. **Code Quality (10%)**
-   - Clean implementation
-   - Follows Mastra best practices
-   - TypeScript types
-
-## Future Enhancements
-
-Potential improvements for production use:
-
-1. **Hybrid Search**: Combine vector similarity with keyword search
-2. **Re-ranking**: Implement re-ranking for better relevance
-3. **User Authentication**: Add user management and personalization
-4. **Export Features**: Allow users to export conversations
-5. **Advanced Analytics**: Track popular queries and response quality
-6. **Multi-document Chat**: Support comparing across multiple years
-7. **Graph RAG**: Implement knowledge graph for relationship queries
-
-## Support
-
-For issues or questions:
-
-1. Check the Mastra documentation: https://mastra.ai/docs
-2. Review this README thoroughly
-3. Check environment variables and database connection
-4. Verify OpenAI API key is valid
+**Issue: Database connection failed**
+- Make sure PostgreSQL is running: `psql postgres`
+- Verify credentials in connection string
+- Check if pgvector extension is installed: `CREATE EXTENSION vector;`
 
 ## License
 
 This project is created for educational purposes as part of the Pazago Drive internship assignment.
-
-## Acknowledgments
-
-- Mastra framework by the team behind Gatsby
-- OpenAI for GPT-4o and embeddings
-- Berkshire Hathaway for shareholder letters
-- PostgreSQL and pgvector communities

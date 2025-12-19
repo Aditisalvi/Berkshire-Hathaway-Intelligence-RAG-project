@@ -1,4 +1,17 @@
--- Users table
+-- Berkshire Hathaway RAG Application Database Schema
+-- Creates database, extensions, and tables for user authentication and conversations
+
+-- Check if database exists and create it
+SELECT 'CREATE DATABASE berkshire_rag'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'berkshire_rag')\gexec
+
+-- Connect to the database
+\c berkshire_rag
+
+-- Enable pgvector extension for vector similarity search
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- Users table for authentication
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
   username VARCHAR(255) UNIQUE NOT NULL,
@@ -6,10 +19,9 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create index on username for faster lookups
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 
--- Conversations table
+-- Conversations table stores chat history metadata
 CREATE TABLE IF NOT EXISTS conversations (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -18,10 +30,9 @@ CREATE TABLE IF NOT EXISTS conversations (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create index on user_id for faster queries
 CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id);
 
--- Messages table
+-- Messages table stores individual chat messages
 CREATE TABLE IF NOT EXISTS messages (
   id SERIAL PRIMARY KEY,
   conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
@@ -30,10 +41,9 @@ CREATE TABLE IF NOT EXISTS messages (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create index on conversation_id for faster message retrieval
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
 
--- Function to auto-update updated_at timestamp
+-- Function to auto-update the updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -42,8 +52,17 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Trigger to auto-update conversations.updated_at
+-- Trigger for auto-updating conversation timestamps
+DROP TRIGGER IF EXISTS update_conversations_updated_at ON conversations;
+
 CREATE TRIGGER update_conversations_updated_at 
   BEFORE UPDATE ON conversations 
   FOR EACH ROW 
   EXECUTE FUNCTION update_updated_at_column();
+
+-- Display summary
+\echo ''
+\echo 'Database setup complete!'
+\echo 'Tables created: users, conversations, messages'
+\echo 'Extension enabled: vector (pgvector)'
+\echo ''
